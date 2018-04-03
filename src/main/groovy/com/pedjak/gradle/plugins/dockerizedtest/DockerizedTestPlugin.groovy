@@ -143,6 +143,7 @@ class DockerizedTestPlugin implements Plugin<Project> {
 
     class ConnectionAcceptorDelegate implements ConnectionAcceptor {
 
+        private logger
         MultiChoiceAddress address
 
         @Delegate
@@ -157,7 +158,14 @@ class DockerizedTestPlugin implements Plugin<Project> {
             {
                 if (address == null)
                 {
-                    def remoteAddresses = NetworkInterface.networkInterfaces.findAll { it.up && !it.loopback }*.inetAddresses*.collect { it }.flatten()
+                    def remoteAddresses = NetworkInterface.networkInterfaces.findAll {
+                        try {
+                            return it.up && !it.loopback
+                        } catch (SocketException ex) {
+                            logger.warn("Unable to inspect interface " + it)
+                            return false
+                        }
+                    }*.inetAddresses*.collect { it }.flatten()
                     def original = delegate.address
                     address = new MultiChoiceAddress(original.canonicalAddress, original.port, remoteAddresses)
                 }
