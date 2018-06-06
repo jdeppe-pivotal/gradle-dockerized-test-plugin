@@ -20,7 +20,13 @@ import com.github.dockerjava.api.DockerClient
 import com.github.dockerjava.core.DefaultDockerClientConfig
 import com.github.dockerjava.core.DockerClientBuilder
 import com.github.dockerjava.netty.NettyDockerCmdExecFactory
+import org.codehaus.groovy.runtime.typehandling.GroovyCastException
 import org.gradle.api.*
+import org.gradle.api.internal.DocumentationRegistry
+import org.gradle.api.internal.classpath.ModuleRegistry
+import org.gradle.api.internal.tasks.testing.detection.DefaultTestExecuter
+import org.gradle.api.internal.tasks.testing.filter.DefaultTestFilter
+import org.gradle.api.tasks.testing.TestFilter
 import org.gradle.internal.concurrent.ExecutorFactory
 import org.gradle.api.tasks.testing.Test
 import org.gradle.internal.operations.BuildOperationExecutor;
@@ -35,6 +41,7 @@ import org.apache.maven.artifact.versioning.ComparableVersion
 import org.gradle.internal.remote.internal.hub.MessageHubBackedObjectConnection
 import org.gradle.internal.remote.internal.inet.MultiChoiceAddress
 import org.gradle.internal.time.Clock
+import org.gradle.internal.work.WorkerLeaseRegistry
 import org.gradle.process.internal.JavaExecHandleFactory
 import org.gradle.process.internal.worker.DefaultWorkerProcessFactory
 
@@ -42,7 +49,7 @@ import javax.inject.Inject
 
 class DockerizedTestPlugin implements Plugin<Project> {
 
-    def supportedVersion = '4.2'
+    def supportedVersion = '4.8'
     def currentUser
     def messagingServer
     def static workerSemaphore = new DefaultWorkerSemaphore()
@@ -65,9 +72,43 @@ class DockerizedTestPlugin implements Plugin<Project> {
 
             if (extension?.image)
             {
-
                 workerSemaphore.applyTo(test.project)
-                test.testExecuter = new TestExecuter(newProcessBuilderFactory(project, extension, test.processBuilderFactory), actorFactory, moduleRegistry, services.get(BuildOperationExecutor), services.get(Clock));
+                def processBF = newProcessBuilderFactory(project, extension, test.processBuilderFactory)
+                def actorFactory = test.getActorFactory();
+                def moduleRegistry = services.get(ModuleRegistry)
+                def workerLeaseRegistry = services.get(WorkerLeaseRegistry) as WorkerLeaseRegistry;
+                def buildOperationExecutor = services.get(BuildOperationExecutor);
+                def maxWorkers = workerSemaphore.getMaxWorkers();
+                def clock = services.get(Clock);
+                def docRegistry = services.get(DocumentationRegistry);
+                def testFilter = new DefaultTestFilter();//                services.get(TestFilter);
+
+                println("processBF=[" + processBF +"]")
+                println("actorFactory=[" + actorFactory +"]")
+                println("moduleRegistry=[" + moduleRegistry +"]")
+                println("workerLeaseRegistry=[" + workerLeaseRegistry +"]")
+                println("buildOperationExecutor=[" + buildOperationExecutor +"]")
+                println("maxWorkers=[" + maxWorkers +"]")
+                println("clock=[" + clock +"]")
+                println("docRegistry=[" + docRegistry +"]")
+                println("testFilter=[" + testFilter +"]")
+
+                try {
+//                test.testExecuter = new DockerizedTestExecuter(
+                  test.testExecuter = new DefaultTestExecuter(
+                        processBF,
+                        actorFactory,
+                        moduleRegistry,
+                        workerLeaseRegistry,
+                        buildOperationExecutor,
+                        maxWorkers,
+                        clock,
+                        docRegistry,
+                        testFilter);
+                } catch (GroovyCastException ex) {
+                    println("Cast exception: " + ex + "\n\n" + ex.getMessage())
+                    System.exit(1);
+                }
 
                 if (!extension.client)
                 {
@@ -98,7 +139,7 @@ class DockerizedTestPlugin implements Plugin<Project> {
     def newProcessBuilderFactory(project, extension, defaultProcessBuilderFactory) {
 
         def execHandleFactory = [newJavaExec: { -> new DockerizedJavaExecHandleBuilder(extension, project.fileResolver, workerSemaphore)}] as JavaExecHandleFactory
-        new DefaultWorkerProcessFactory(defaultProcessBuilderFactory.loggingManager,
+        return new DefaultWorkerProcessFactory(defaultProcessBuilderFactory.loggingManager,
                                         messagingServer,
                                         defaultProcessBuilderFactory.workerImplementationFactory.classPathRegistry,
                                         defaultProcessBuilderFactory.idGenerator,
@@ -109,6 +150,7 @@ class DockerizedTestPlugin implements Plugin<Project> {
                                         defaultProcessBuilderFactory.outputEventListener,
                                         memoryManager
                                         )
+
     }
 
     class MessageServer implements MessagingServer {

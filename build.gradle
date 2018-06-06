@@ -1,14 +1,18 @@
+
 plugins {
-  id "com.jfrog.bintray" version "1.6"
-  id "nu.studer.plugindev" version "1.0.4"
+    id "com.jfrog.bintray" version "1.6"
+    id "nu.studer.plugindev" version "1.0.4"
 }
 
-group = 'com.pedjak.gradle.plugins'
-version = '0.5.6'
-
 apply plugin: 'groovy'
+apply plugin: 'maven-publish'
 apply plugin: 'java-gradle-plugin'
 apply plugin: 'idea'
+
+
+group = 'com.pedjak.gradle.plugins'
+version = '0.5.6.1-SNAPSHOT'
+
 
 dependencies {
     compile gradleApi()
@@ -78,6 +82,19 @@ sourceSets {
         }
         groovy {
             srcDirs += ['src/main/java']
+        }
+    }
+}
+
+
+publishing {
+    repositories {
+        maven {
+            url 's3://geode-maven'
+            credentials(AwsCredentials) {
+                accessKey 'AKIAIIB5OSWIP42OSBWA'
+                secretKey '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'
+            }
         }
     }
 }

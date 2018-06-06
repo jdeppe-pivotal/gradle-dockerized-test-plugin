@@ -18,8 +18,7 @@ package com.pedjak.gradle.plugins.dockerizedtest
 
 import org.gradle.api.internal.file.FileResolver
 import org.gradle.process.internal.*
-import org.gradle.process.internal.streams.StreamsForwarder
-import org.gradle.process.internal.streams.StreamsHandler
+import org.gradle.process.internal.streams.OutputStreamsForwarder
 
 class DockerizedJavaExecHandleBuilder extends JavaExecHandleBuilder {
 
@@ -40,7 +39,7 @@ class DockerizedJavaExecHandleBuilder extends JavaExecHandleBuilder {
             effectiveHandler = this.streamsHandler;
         } else {
             boolean shouldReadErrorStream = !redirectErrorStream;
-            effectiveHandler = new StreamsForwarder(standardOutput, errorOutput, standardInput, shouldReadErrorStream);
+            effectiveHandler = new OutputStreamsForwarder(standardOutput, errorOutput, shouldReadErrorStream);
         }
         return effectiveHandler;
     }
