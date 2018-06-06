@@ -9,7 +9,6 @@ import com.github.dockerjava.core.command.AttachContainerResultCallback;
 import com.github.dockerjava.core.command.WaitContainerResultCallback;
 import groovy.lang.Closure;
 
-import net.rubygrapefruit.platform.ProcessLauncher;
 import org.gradle.api.logging.Logger;
 import org.gradle.api.logging.Logging;
 import org.gradle.initialization.BuildCancellationToken;
@@ -93,7 +92,6 @@ public class DockerizedExecHandle implements ExecHandle, ProcessSettings {
   private final StreamsHandler outputHandler;
   private final StreamsHandler inputHandler;
   private final boolean redirectErrorStream;
-  private final ProcessLauncher processLauncher;
   private int timeoutMillis;
   private boolean daemon;
 
@@ -148,7 +146,6 @@ public class DockerizedExecHandle implements ExecHandle, ProcessSettings {
     this.state = ExecHandleState.INIT;
     this.testExtension = testExtension;
     this.buildCancellationToken = buildCancellationToken;
-    processLauncher = NativeServices.getInstance().get(ProcessLauncher.class);
     shutdownHookAction = new ExecHandleShutdownHookAction(this);
     broadcast = new ListenerBroadcast<ExecHandleListener>(ExecHandleListener.class);
     broadcast.addAll(listeners);

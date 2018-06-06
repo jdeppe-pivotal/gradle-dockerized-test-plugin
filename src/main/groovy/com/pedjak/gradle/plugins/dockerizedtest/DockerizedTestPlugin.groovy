@@ -20,22 +20,30 @@ import com.github.dockerjava.api.DockerClient
 import com.github.dockerjava.core.DefaultDockerClientConfig
 import com.github.dockerjava.core.DockerClientBuilder
 import com.github.dockerjava.netty.NettyDockerCmdExecFactory
-import org.gradle.api.*
+import org.apache.commons.lang3.SystemUtils
+import org.apache.maven.artifact.versioning.ComparableVersion
+import org.gradle.api.Action
+import org.gradle.api.GradleException
+import org.gradle.api.Plugin
+import org.gradle.api.Project
+import org.gradle.api.internal.DocumentationRegistry
+import org.gradle.api.internal.classpath.ModuleRegistry
 import org.gradle.api.internal.tasks.testing.detection.DefaultTestExecuter
-import org.gradle.internal.concurrent.ExecutorFactory
+import org.gradle.api.internal.tasks.testing.filter.DefaultTestFilter
 import org.gradle.api.tasks.testing.Test
-import org.gradle.internal.operations.BuildOperationExecutor;
+import org.gradle.internal.actor.ActorFactory
+import org.gradle.internal.concurrent.ExecutorFactory
+import org.gradle.internal.operations.BuildOperationExecutor
 import org.gradle.internal.remote.Address
 import org.gradle.internal.remote.ConnectionAcceptor
 import org.gradle.internal.remote.MessagingServer
 import org.gradle.internal.remote.ObjectConnection
 import org.gradle.internal.remote.internal.ConnectCompletion
 import org.gradle.internal.remote.internal.IncomingConnector
-import org.apache.commons.lang3.SystemUtils
-import org.apache.maven.artifact.versioning.ComparableVersion
 import org.gradle.internal.remote.internal.hub.MessageHubBackedObjectConnection
 import org.gradle.internal.remote.internal.inet.MultiChoiceAddress
 import org.gradle.internal.time.Clock
+import org.gradle.internal.work.WorkerLeaseRegistry
 import org.gradle.process.internal.JavaExecHandleFactory
 import org.gradle.process.internal.worker.DefaultWorkerProcessFactory
 
@@ -68,7 +76,21 @@ class DockerizedTestPlugin implements Plugin<Project> {
             {
 
                 workerSemaphore.applyTo(test.project)
-                test.testExecuter = new DefaultTestExecuter(newProcessBuilderFactory(project, extension, test.processBuilderFactory), actorFactory, moduleRegistry, services.get(BuildOperationExecutor), services.get(Clock))
+                def workerCount = 1
+                System.out.println("Testing. Using 1 worker")
+                def testFilter = new DefaultTestFilter()
+
+                def newExecuter = new DefaultTestExecuter(
+                        newProcessBuilderFactory(project, extension, test.processBuilderFactory),
+                        actorFactory as ActorFactory,
+                        moduleRegistry as ModuleRegistry,
+                        services.get(WorkerLeaseRegistry) as WorkerLeaseRegistry,
+                        services.get(BuildOperationExecutor) as BuildOperationExecutor,
+                        workerCount as int,
+                        services.get(Clock) as Clock,
+                        services.get(DocumentationRegistry) as DocumentationRegistry,
+                testFilter  as DefaultTestFilter)
+                test.testExecuter = newExecuter
 //                test.testExecuter = new DockerTestExecuter(newProcessBuilderFactory(project, extension, test.processBuilderFactory), actorFactory, moduleRegistry, services.get(BuildOperationExecutor), services.get(Clock));
 
                 if (!extension.client)
@@ -99,7 +121,10 @@ class DockerizedTestPlugin implements Plugin<Project> {
 
     def newProcessBuilderFactory(project, extension, defaultProcessBuilderFactory) {
 
-        def execHandleFactory = [newJavaExec: { -> new DockerizedJavaExecHandleBuilder(extension, project.fileResolver, workerSemaphore)}] as JavaExecHandleFactory
+        def execHandleFactory = [newJavaExec: {
+            -> new DockerizedJavaExecHandleBuilder(extension, project.fileResolver, workerSemaphore)
+        }] as JavaExecHandleFactory
+
         new DefaultWorkerProcessFactory(defaultProcessBuilderFactory.loggingManager,
                                         messagingServer,
                                         defaultProcessBuilderFactory.workerImplementationFactory.classPathRegistry,
@@ -161,7 +186,10 @@ class DockerizedTestPlugin implements Plugin<Project> {
                 {
                     def remoteAddresses = NetworkInterface.networkInterfaces.findAll { it.up && !it.loopback }*.inetAddresses*.collect { it }.flatten()
                     def original = delegate.address
-                    address = new MultiChoiceAddress(original.canonicalAddress, original.port, remoteAddresses)
+                    address = new MultiChoiceAddress(
+                            original.canonicalAddress as UUID,
+                            original.port as int,
+                            remoteAddresses as List<InetAddress>)
                 }
             }
             address
