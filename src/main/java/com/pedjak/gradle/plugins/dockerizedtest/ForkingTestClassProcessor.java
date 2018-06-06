@@ -121,8 +121,4 @@ public class ForkingTestClassProcessor implements TestClassProcessor
             }
         }
     }
-    @Override
-    public void stopNow() {
-        stop();
-    }
 }

@@ -49,10 +49,6 @@ class DefaultWorkerSemaphore implements WorkerSemaphore
         }
     }
 
-    private synchronized int getMaxWorkers() {
-        return this.@maxWorkers;
-    }
-
     private synchronized Semaphore semaphore() {
         if (semaphore == null) {
             semaphore = new Semaphore(maxWorkers)

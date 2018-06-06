@@ -16,7 +16,6 @@
 
 package com.pedjak.gradle.plugins.dockerizedtest;
 
-import java.util.concurrent.Executor;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -25,7 +24,7 @@ import org.gradle.api.logging.Logger;
 import org.gradle.api.logging.Logging;
 import org.gradle.internal.concurrent.ExecutorFactory;
 import org.gradle.process.internal.ProcessBuilderFactory;
-import org.gradle.process.internal.StreamsHandler;
+import org.gradle.process.internal.streams.StreamsHandler;
 
 
 public class DockerizedExecHandleRunner implements Runnable {
@@ -33,14 +32,15 @@ public class DockerizedExecHandleRunner implements Runnable {
 
     private final DockerizedExecHandle execHandle;
     private final Lock lock = new ReentrantLock();
-    private final Executor executor;
+    private final ExecutorFactory executorFactory;
 
-    private Process process;
+    private final Process process;
     private boolean aborted;
     private final StreamsHandler streamsHandler;
 
-    public DockerizedExecHandleRunner(DockerizedExecHandle execHandle, StreamsHandler streamsHandler, Executor executor) {
-        this.executor = executor;
+    public DockerizedExecHandleRunner(DockerizedExecHandle execHandle, StreamsHandler streamsHandler, Process process, ExecutorFactory executorFactory) {
+        this.process = process;
+        this.executorFactory = executorFactory;
         if (execHandle == null) {
             throw new IllegalArgumentException("execHandle == null!");
         }
@@ -63,8 +63,7 @@ public class DockerizedExecHandleRunner implements Runnable {
 
     public void run() {
         try {
-            process = execHandle.runContainer();
-            streamsHandler.connectStreams(process, execHandle.getDisplayName(), executor);
+            streamsHandler.connectStreams(process, execHandle.getDisplayName(), executorFactory);
 
             execHandle.started();
 
@@ -93,10 +92,6 @@ public class DockerizedExecHandleRunner implements Runnable {
 
     private void detached() {
         execHandle.detached();
-    }
-
-    public String toString() {
-        return "Handler for "+process.toString();
     }
 }
 

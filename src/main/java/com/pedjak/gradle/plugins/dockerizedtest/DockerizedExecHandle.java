@@ -31,18 +31,16 @@ import org.gradle.internal.concurrent.DefaultExecutorFactory;
 import org.gradle.internal.concurrent.ManagedExecutor;
 import org.gradle.internal.event.ListenerBroadcast;
 import org.gradle.internal.nativeintegration.services.NativeServices;
-//import org.gradle.internal.operations.BuildOperationIdentifierPreservingRunnable;
-import org.gradle.internal.operations.CurrentBuildOperationPreservingRunnable;
+import org.gradle.internal.operations.BuildOperationIdentifierPreservingRunnable;
 import org.gradle.process.ExecResult;
 import org.gradle.process.internal.*;
 import org.gradle.process.internal.shutdown.ShutdownHookActionRegister;
-import org.gradle.process.internal.StreamsHandler;
+import org.gradle.process.internal.streams.StreamsHandler;
 
 import javax.annotation.Nullable;
 import java.io.*;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
@@ -253,16 +251,13 @@ public class DockerizedExecHandle implements ExecHandle, ProcessSettings
             }
             setState(ExecHandleState.STARTING);
 
-            execHandleRunner = new DockerizedExecHandleRunner(this, streamsHandler, executorFactory.create(this.displayName));
-            executor.execute(new CurrentBuildOperationPreservingRunnable(execHandleRunner));
+            execHandleRunner = new DockerizedExecHandleRunner(this, streamsHandler, runContainer(), executorFactory);
+            executor.execute(new BuildOperationIdentifierPreservingRunnable(execHandleRunner));
 
             while (stateIn(ExecHandleState.STARTING)) {
                 LOGGER.debug("Waiting until process started: {}.", displayName);
                 try {
-                    if (!stateChanged.await(30, TimeUnit.SECONDS)) {
-                        execHandleRunner.abortProcess();
-                        throw new RuntimeException("Giving up on "+execHandleRunner);
-                    }
+                    stateChanged.await();
                 } catch (InterruptedException e) {
                     //ok, wrapping up
                 }
@@ -385,7 +380,7 @@ public class DockerizedExecHandle implements ExecHandle, ProcessSettings
 
     }
 
-    public Process runContainer() {
+    private Process runContainer() {
         try
         {
             DockerClient client = getClient();
@@ -530,43 +525,33 @@ public class DockerizedExecHandle implements ExecHandle, ProcessSettings
             }
         };
 
-        private final WaitContainerResultCallback waitContainerResultCallback = new WaitContainerResultCallback() {
-            @Override public void onNext(WaitResponse waitResponse)
-            {
-                exitCode.set(waitResponse.getStatusCode());
-                try
-                {
-                    attachContainerResultCallback.close();
-                    attachContainerResultCallback.awaitCompletion();
-                    stdOutWriteStream.close();
-                    stdErrWriteStream.close();
-                } catch (Exception e) {
-                    LOGGER.debug("Error by detaching streams", e);
-                } finally
-                {
-                    try
-                    {
-                        invokeIfNotNull(afterContainerStop, containerId, dockerClient);
-                    } catch (Exception e) {
-                        LOGGER.debug("Exception thrown at invoking afterContainerStop", e);
-                    } finally
-                    {
-                        finished.countDown();
-                    }
-
-                }
-
-
-            }
-        };
-
         public DockerizedProcess(final DockerClient dockerClient, final String containerId, final Closure afterContainerStop) throws Exception
         {
             this.dockerClient = dockerClient;
             this.containerId = containerId;
             this.afterContainerStop = afterContainerStop;
             attachStreams();
-            dockerClient.waitContainerCmd(containerId).exec(waitContainerResultCallback);
+            dockerClient.waitContainerCmd(containerId).exec(new WaitContainerResultCallback() {
+                @Override public void onNext(WaitResponse waitResponse)
+                {
+                    exitCode.set(waitResponse.getStatusCode());
+                    try
+                    {
+                        attachContainerResultCallback.close();
+                        attachContainerResultCallback.awaitCompletion();
+                        stdOutWriteStream.close();
+                        stdErrWriteStream.close();
+                    } catch (Exception e) {
+                        LOGGER.debug("Error by detaching streams", e);
+                    } finally
+                    {
+                        finished.countDown();
+                        invokeIfNotNull(afterContainerStop, containerId, dockerClient);
+                    }
+
+
+                }
+            });
         }
 
         private void attachStreams() throws Exception {
@@ -576,10 +561,6 @@ public class DockerizedExecHandle implements ExecHandle, ProcessSettings
                     .withStdErr(true)
                     .withStdIn(stdInReadStream)
                     .exec(attachContainerResultCallback);
-            if (!attachContainerResultCallback.awaitStarted(10, TimeUnit.SECONDS)) {
-                LOGGER.warn("Not attached to container "+containerId+" within 10secs");
-                throw new RuntimeException("Not attached to container "+containerId+" within 10secs");
-            }
         }
 
         @Override public OutputStream getOutputStream()
@@ -612,11 +593,6 @@ public class DockerizedExecHandle implements ExecHandle, ProcessSettings
         @Override public void destroy()
         {
             dockerClient.killContainerCmd(containerId).exec();
-        }
-
-        @Override
-        public String toString() {
-            return "Container "+containerId+" on "+dockerClient.toString();
         }
     }
 
