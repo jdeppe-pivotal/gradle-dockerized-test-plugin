@@ -493,10 +493,10 @@ public class DockerizedExecHandle implements ExecHandle, ProcessSettings {
     }
 
     public ExecResult assertNormalExitValue() throws ExecException {
-      if (exitValue != 0) {
-        throw new ExecException(
-            format("Process '%s' finished with non-zero exit value %d", displayName, exitValue));
-      }
+//      if (exitValue != 0) {
+//        throw new ExecException(
+//            format("Process '%s' finished with non-zero exit value %d", displayName, exitValue));
+//      }
       return this;
     }
 
