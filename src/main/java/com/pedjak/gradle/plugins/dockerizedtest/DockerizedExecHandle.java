@@ -267,7 +267,7 @@ public class DockerizedExecHandle implements ExecHandle, ProcessSettings {
       setState(ExecHandleState.STARTING);
 
       execHandleRunner =
-          new DockerizedExecHandleRunner(this, new CompositeStreamsHandler(), runContainer(), executor);
+          new DockerizedExecHandleRunner(this, new CompositeStreamsHandler(), executor);
       executor.execute(new CurrentBuildOperationPreservingRunnable(execHandleRunner));
 
       while (stateIn(ExecHandleState.STARTING)) {
@@ -401,7 +401,7 @@ public class DockerizedExecHandle implements ExecHandle, ProcessSettings {
 
     }
 
-    private Process runContainer() {
+    public Process runContainer() {
         try
         {
             DockerClient client = getClient();
@@ -435,7 +435,6 @@ public class DockerizedExecHandle implements ExecHandle, ProcessSettings {
             }
 
             Process proc = new DockerizedProcess(client, containerId, testExtension.getAfterContainerStop());
-
             return proc;
         } catch (Exception e) {
             e.printStackTrace();
