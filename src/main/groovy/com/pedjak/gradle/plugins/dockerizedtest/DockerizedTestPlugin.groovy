@@ -125,7 +125,7 @@ class DockerizedTestPlugin implements Plugin<Project> {
             -> new DockerizedJavaExecHandleBuilder(extension, project.fileResolver, workerSemaphore)
         }] as JavaExecHandleFactory
 
-        new DefaultWorkerProcessFactory(defaultProcessBuilderFactory.loggingManager,
+        def pf = new DefaultWorkerProcessFactory(defaultProcessBuilderFactory.loggingManager,
                                         messagingServer,
                                         defaultProcessBuilderFactory.workerImplementationFactory.classPathRegistry,
                                         defaultProcessBuilderFactory.idGenerator,
@@ -136,6 +136,7 @@ class DockerizedTestPlugin implements Plugin<Project> {
                                         defaultProcessBuilderFactory.outputEventListener,
                                         memoryManager
                                         )
+        return pf
     }
 
     class MessageServer implements MessagingServer {

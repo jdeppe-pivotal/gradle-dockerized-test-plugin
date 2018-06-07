@@ -22,11 +22,12 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import org.gradle.api.logging.Logger;
 import org.gradle.api.logging.Logging;
+import org.gradle.process.internal.ExecHandleRunner;
 import org.gradle.process.internal.StreamsHandler;
 
 
 public class DockerizedExecHandleRunner implements Runnable {
-    private static final Logger LOGGER = Logging.getLogger(org.gradle.process.internal.ExecHandleRunner.class);
+    private static final Logger LOGGER = Logging.getLogger(DockerizedExecHandleRunner.class);
 
     private final DockerizedExecHandle execHandle;
     private final Lock lock = new ReentrantLock();
@@ -67,6 +68,7 @@ public class DockerizedExecHandleRunner implements Runnable {
 
             LOGGER.debug("waiting until streams are handled...");
             streamsHandler.start();
+            LOGGER.debug("streamsHandler started");
             if (execHandle.isDaemon()) {
                 streamsHandler.stop();
                 detached();
@@ -76,6 +78,9 @@ public class DockerizedExecHandleRunner implements Runnable {
                 completed(exitValue);
             }
         } catch (Throwable t) {
+            LOGGER.debug(
+                "throw happened ..."
+            );
             execHandle.failed(t);
         }
     }
