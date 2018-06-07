@@ -437,6 +437,7 @@ public class DockerizedExecHandle implements ExecHandle, ProcessSettings {
             Process proc = new DockerizedProcess(client, containerId, testExtension.getAfterContainerStop());
             return proc;
         } catch (Exception e) {
+            LOGGER.info("Exception creating container and returning DockerizedProcess");
             e.printStackTrace();
             throw new RuntimeException(e);
         }

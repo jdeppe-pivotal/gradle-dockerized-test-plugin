@@ -64,7 +64,6 @@ public class DockerizedExecHandleRunner implements Runnable {
 
     public void run() {
         try {
-//            ProcessBuilder pb = processBuilderFactory.createProcessBuilder(execHandle);
             Process p = execHandle.runContainer();
             streamsHandler.connectStreams(p, execHandle.getDisplayName(), executor);
             setProcess(p);

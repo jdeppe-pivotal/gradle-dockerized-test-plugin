@@ -22,6 +22,7 @@ import com.github.dockerjava.core.DockerClientBuilder
 import com.github.dockerjava.netty.NettyDockerCmdExecFactory
 import org.apache.commons.lang3.SystemUtils
 import org.apache.maven.artifact.versioning.ComparableVersion
+import org.gradle.StartParameter
 import org.gradle.api.Action
 import org.gradle.api.GradleException
 import org.gradle.api.Plugin
@@ -76,8 +77,8 @@ class DockerizedTestPlugin implements Plugin<Project> {
             {
 
                 workerSemaphore.applyTo(test.project)
-                def workerCount = 1
-                System.out.println("Testing. Using 1 worker")
+                def workerCount = getServices().get(StartParameter.class).getMaxWorkerCount()
+
                 def testFilter = new DefaultTestFilter()
 
                 def newExecuter = new DefaultTestExecuter(

@@ -20,7 +20,7 @@ import org.gradle.api.internal.file.FileResolver
 import org.gradle.initialization.DefaultBuildCancellationToken
 import org.gradle.internal.concurrent.DefaultExecutorFactory
 import org.gradle.process.internal.*
-import org.gradle.process.internal.streams.EmptyStdInStreamsHandler
+import org.gradle.process.internal.streams.ForwardStdinStreamsHandler
 import org.gradle.process.internal.streams.OutputStreamsForwarder
 
 class DockerizedJavaExecHandleBuilder extends JavaExecHandleBuilder {
@@ -33,7 +33,6 @@ class DockerizedJavaExecHandleBuilder extends JavaExecHandleBuilder {
     private final DockerizedTestExtension extension
 
 
-    private static final EmptyStdInStreamsHandler DEFAULT_STDIN = new EmptyStdInStreamsHandler()
     private final WorkerSemaphore workersSemaphore
 
     DockerizedJavaExecHandleBuilder(DockerizedTestExtension extension, FileResolver fileResolver, WorkerSemaphore workersSemaphore) {
@@ -61,7 +60,7 @@ class DockerizedJavaExecHandleBuilder extends JavaExecHandleBuilder {
                 allArguments,
                 getActualEnvironment(),
                 getStreamsHandler(),
-                DEFAULT_STDIN as StreamsHandler,
+                new ForwardStdinStreamsHandler(standardInput),
                 listeners,
                 redirectErrorStream,
                 timeoutMillis,
