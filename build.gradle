@@ -1,74 +1,81 @@
-plugins {
-  id "com.jfrog.bintray" version "1.6"
-  id "nu.studer.plugindev" version "1.0.4"
+import com.amazonaws.auth.*
+import com.amazonaws.auth.profile.*
+
+buildscript {
+
+    repositories {
+        mavenCentral()
+    }
+    dependencies{
+
+        classpath 'com.amazonaws:aws-java-sdk-core:1.11.5'
+    }
+
+
 }
 
-group = 'com.pedjak.gradle.plugins'
-version = '0.5.6'
 
+
+plugins {
+    id "com.gradle.plugin-publish" version "0.10.0"
+    id 'java-gradle-plugin'
+}
 apply plugin: 'groovy'
-apply plugin: 'java-gradle-plugin'
+apply plugin: 'maven-publish'
 apply plugin: 'idea'
+
+
+
+
+
+group = 'com.pedjak.gradle.plugins'
+version = '0.5.6.34-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
 
 dependencies {
     compile gradleApi()
     compile 'org.apache.commons:commons-lang3:3.3.2'
     compile 'org.apache.maven:maven-artifact:3.3.3'
-    compile 'com.github.docker-java:docker-java:3.0.13'
+    compile 'io.netty:netty-handler-proxy:4.1.22.Final'
+    compile 'io.netty:netty-codec-http:4.1.22.Final'
+    compile 'io.netty:netty-handler:4.1.22.Final'
+    compile 'io.netty:netty-transport-native-epoll:4.1.22.Final'
+    compile 'io.netty:netty-transport-native-kqueue:4.1.22.Final'
+
+    compile 'com.github.docker-java:docker-java:3.0.14'
 
     testCompile ("org.spockframework:spock-core:1.0-groovy-2.4") {
         exclude module: "groovy-all"
     }
 }
 
-plugindev {
-    pluginId "com.github.pedjak.dockerized-test"
-    pluginImplementationClass "com.pedjak.gradle.plugins.dockerizedtest.DockerizedTestPlugin"
-    pluginDescription "Running tests inside a docker image"
-    pluginLicenses "Apache-2.0"
-    pluginTags "docker", 'test', 'integration-test'
-    authorId "pedjak"
-    authorName "Predrag Knezevic"
-    authorEmail "pedjak@gmail.com"
-    projectUrl "https://github.com/pedjak/gradle-dockerized-test-plugin"
-    projectInceptionYear "2015"
-    done() // do not omit
+gradlePlugin {
+    plugins {
+        simplePlugin {
+            id = "com.github.pedjak.dockerized-test"
+            implementationClass = "com.pedjak.gradle.plugins.dockerizedtest.DockerizedTestPlugin"
+        }
+    }
+}
+
+pluginBundle {
+    website = 'https://github.com/pedjak/gradle-dockerized-test-plugin'
+    vcsUrl = 'https://github.com/pedjak/gradle-dockerized-test-plugin'
+    description = 'Running tests inside a docker image'
+    tags = ["docker", 'test', 'integration-test']
+
+    plugins {
+        greetingsPlugin {
+            displayName = 'dockerized-test'
+        }
+    }
 }
 
 javadoc {
     options.addStringOption('Xdoclint:none', '-quiet')
-}
-
-bintray {
-    if (!project.hasProperty("BINTRAY_USER")) {
-        project.ext.BINTRAY_USER = ""
-    }
-
-    if (!project.hasProperty("BINTRAY_API_KEY")) {
-        project.ext.BINTRAY_API_KEY = ""
-    }
-
-    user = BINTRAY_USER
-    key = BINTRAY_API_KEY
-
-    pkg.repo = "gradle-plugins"
-    pkg.userOrg = "pedjak"
-    pkg.attributes =  ["gradle-plugin": "${project.plugindev.pluginId}:${project.group}:${project.name}"]
-}
-
-tasks.whenTaskAdded { t ->
-    if (t.name == 'generatePomFileForPluginPublication') {
-        jar {
-            dependsOn t
-            metaInf {
-                from t.destination
-                into "maven/$project.group/$project.name"
-                rename {
-                    'pom.xml'
-                }
-            }
-        }
-    }
 }
 
 sourceSets {
@@ -78,6 +85,30 @@ sourceSets {
         }
         groovy {
             srcDirs += ['src/main/java']
+        }
+    }
+}
+
+
+
+def fetchAwsCredentials = {
+    try {
+        return new ProfileCredentialsProvider().credentials
+    } catch (Exception e) {
+        logger.debug('Unable to retrieve AWS credentials from profile, publishing to S3 will not be available.', e)
+        return null
+    }
+}
+AWSCredentials awsCredentials = fetchAwsCredentials()
+
+publishing {
+    repositories {
+        maven {
+            url "s3://geode-maven/"
+            credentials(AwsCredentials) {
+                accessKey = awsCredentials.AWSAccessKeyId
+                secretKey = awsCredentials.AWSSecretKey
+            }
         }
     }
 }
