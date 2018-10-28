@@ -24,12 +24,8 @@ apply plugin: 'groovy'
 apply plugin: 'maven-publish'
 apply plugin: 'idea'
 
-
-
-
-
 group = 'com.pedjak.gradle.plugins'
-version = '0.5.6.34-SNAPSHOT'
+version = '0.5.7-GEODE'
 
 repositories {
     mavenCentral()
@@ -44,8 +40,7 @@ dependencies {
     compile 'io.netty:netty-handler:4.1.22.Final'
     compile 'io.netty:netty-transport-native-epoll:4.1.22.Final'
     compile 'io.netty:netty-transport-native-kqueue:4.1.22.Final'
-
-    compile 'com.github.docker-java:docker-java:3.0.14'
+    compile 'com.github.docker-java:docker-java:3.1.2-GEODE'
 
     testCompile ("org.spockframework:spock-core:1.0-groovy-2.4") {
         exclude module: "groovy-all"
@@ -88,8 +83,6 @@ sourceSets {
         }
     }
 }
-
-
 
 def fetchAwsCredentials = {
     try {

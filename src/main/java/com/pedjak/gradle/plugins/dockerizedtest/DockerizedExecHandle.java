@@ -41,6 +41,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -393,7 +394,6 @@ public class DockerizedExecHandle implements ExecHandle, ProcessSettings
             CreateContainerCmd createCmd = client.createContainerCmd(testExtension.getImage().toString())
                     .withTty(false)
                     .withStdinOpen(true)
-                    .withStdInOnce(true)
                     .withWorkingDir(directory.getAbsolutePath());
 
             createCmd.withEnv(getEnv());
@@ -532,7 +532,7 @@ public class DockerizedExecHandle implements ExecHandle, ProcessSettings
         private final PipedOutputStream stdErrWriteStream = new PipedOutputStream(stdErrReadStream);
 
         private final CountDownLatch finished = new CountDownLatch(1);
-        private AtomicInteger exitCode = new AtomicInteger();
+        private AtomicLong exitCode = new AtomicLong();
         private final AttachContainerResultCallback attachContainerResultCallback = new AttachContainerResultCallback() {
             @Override public void onNext(Frame frame)
             {
@@ -621,13 +621,19 @@ public class DockerizedExecHandle implements ExecHandle, ProcessSettings
         @Override public int waitFor() throws InterruptedException
         {
             finished.await();
-            return exitCode.get();
+            if(exitCode.get() > Integer.MAX_VALUE) {
+                return Integer.MAX_VALUE;
+            }
+            return Long.valueOf(exitCode.get()).intValue();
         }
 
         @Override public int exitValue()
         {
             if (finished.getCount() > 0) throw new IllegalThreadStateException("docker process still running");
-            return exitCode.get();
+            if(exitCode.get() > Integer.MAX_VALUE) {
+                return Integer.MAX_VALUE;
+            }
+            return Long.valueOf(exitCode.get()).intValue();
         }
 
         @Override public void destroy()
